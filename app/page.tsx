@@ -1,12 +1,26 @@
-import { getLatestArticles } from "@/data/articles"
+import { prisma } from "@/lib/db"
 import FeaturedArticle from "@/components/FeaturedArticle"
 import ArticleCard from "@/components/ArticleCard"
 import Sidebar from "@/components/Sidebar"
 import Link from "next/link"
 import { ArrowRight, Newspaper, TrendingUp, Users } from "lucide-react"
 
-export default function HomePage() {
-  const latestArticles = getLatestArticles(6)
+export const dynamic = "force-dynamic"
+
+export default async function HomePage() {
+  const dbArticles = await prisma.article.findMany({
+    orderBy: {
+      date: "desc",
+    },
+    take: 6,
+  })
+
+  const latestArticles = dbArticles.map((art) => ({
+    ...art,
+    category: art.category as any,
+    date: art.date.toISOString(),
+  }))
+
   const featuredArticle = latestArticles[0]
   const restArticles = latestArticles.slice(1)
 
@@ -14,7 +28,15 @@ export default function HomePage() {
     <div>
       {/* Hero / Featured Article */}
       <section className="container px-4 md:px-6 pt-6 pb-4">
-        <FeaturedArticle article={featuredArticle} />
+        {featuredArticle ? (
+          <FeaturedArticle article={featuredArticle} />
+        ) : (
+          <div className="h-[250px] bg-white border border-gray-100 rounded-2xl flex flex-col items-center justify-center shadow-sm p-6 text-center">
+            <Newspaper className="w-10 h-10 text-orange-500 mb-2" />
+            <h3 className="text-base font-bold text-gray-900">Belum Ada Artikel</h3>
+            <p className="text-xs text-gray-500 max-w-xs mt-1">Daftar artikel masih kosong. Tulis artikel baru melalui panel administrator.</p>
+          </div>
+        )}
       </section>
 
       {/* Ticker / Quick Stats */}

@@ -1,21 +1,40 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { articles, categories, searchArticles, type Category } from "@/data/articles"
+import { categories, type Category } from "@/data/articles"
 import ArticleCard from "@/components/ArticleCard"
 import Sidebar from "@/components/Sidebar"
-import { Search, Filter, LayoutGrid, List, Newspaper } from "lucide-react"
+import { Search, LayoutGrid, List, Newspaper } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
-export default function ArtikelPage() {
+function ArtikelPageContent() {
   const searchParams = useSearchParams()
   const initialCategory = searchParams.get("category") as Category | null
   const initialSearch = searchParams.get("search") || ""
 
+  const [articles, setArticles] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState(initialSearch)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(initialCategory)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+
+  useEffect(() => {
+    const fetchArticles = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch("/api/articles")
+        if (!res.ok) throw new Error("Gagal mengambil data artikel")
+        const data = await res.json()
+        setArticles(data)
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchArticles()
+  }, [])
 
   const filteredArticles = useMemo(() => {
     let result = articles
@@ -36,7 +55,7 @@ export default function ArtikelPage() {
     }
 
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [searchQuery, selectedCategory])
+  }, [searchQuery, selectedCategory, articles])
 
   return (
     <div>
@@ -126,7 +145,14 @@ export default function ArtikelPage() {
               </p>
             </div>
 
-            {filteredArticles.length === 0 ? (
+            {loading ? (
+              <div className="flex justify-center items-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm text-gray-500 font-semibold">Memuat daftar artikel...</p>
+                </div>
+              </div>
+            ) : filteredArticles.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
                 <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Search className="h-8 w-8 text-gray-400" />
@@ -171,5 +197,20 @@ export default function ArtikelPage() {
         </div>
       </section>
     </div>
+  )
+}
+
+export default function ArtikelPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center py-20 bg-white min-h-screen">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-500 font-semibold">Memuat halaman artikel...</p>
+        </div>
+      </div>
+    }>
+      <ArtikelPageContent />
+    </Suspense>
   )
 }

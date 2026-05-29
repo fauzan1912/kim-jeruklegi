@@ -13,6 +13,8 @@ export default function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const pathname = usePathname()
 
+  if (pathname?.startsWith("/admin")) return null
+
   const navLinks = [
     { href: "/", label: "Beranda" },
     { href: "/artikel", label: "Artikel" },

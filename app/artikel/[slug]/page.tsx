@@ -1,4 +1,5 @@
-import { articles, getArticleBySlug, getRelatedArticles, formatDate } from "@/data/articles"
+import { prisma } from "@/lib/db"
+import { formatDate } from "@/data/articles"
 import CategoryBadge from "@/components/CategoryBadge"
 import ArticleCard from "@/components/ArticleCard"
 import Image from "next/image"
@@ -7,18 +8,16 @@ import { ArrowLeft, Calendar, Clock, User, Share2, ChevronRight } from "lucide-r
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+export const dynamic = "force-dynamic"
+
 interface PageProps {
   params: { slug: string }
 }
 
-export async function generateStaticParams() {
-  return articles.map((article) => ({
-    slug: article.slug,
-  }))
-}
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const article = getArticleBySlug(params.slug)
+  const article = await prisma.article.findUnique({
+    where: { slug: params.slug },
+  })
   if (!article) return { title: "Artikel Tidak Ditemukan" }
 
   return {
@@ -27,14 +26,47 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default function ArticleDetailPage({ params }: PageProps) {
-  const article = getArticleBySlug(params.slug)
+export default async function ArticleDetailPage({ params }: PageProps) {
+  const dbArticle = await prisma.article.findUnique({
+    where: { slug: params.slug },
+  })
 
-  if (!article) {
+  if (!dbArticle) {
     notFound()
   }
 
-  const relatedArticles = getRelatedArticles(article.slug, 3)
+  const article = {
+    ...dbArticle,
+    category: dbArticle.category as any,
+    date: dbArticle.date.toISOString(),
+  }
+
+  const dbRelated = await prisma.article.findMany({
+    where: {
+      category: article.category,
+      slug: { not: article.slug },
+    },
+    take: 3,
+  })
+
+  const relatedArticles = dbRelated.map((a) => ({
+    ...a,
+    category: a.category as any,
+    date: a.date.toISOString(),
+  }))
+
+  const dbOther = await prisma.article.findMany({
+    where: {
+      slug: { not: article.slug },
+    },
+    take: 4,
+  })
+
+  const otherArticles = dbOther.map((a) => ({
+    ...a,
+    category: a.category as any,
+    date: a.date.toISOString(),
+  }))
 
   return (
     <div>
@@ -175,12 +207,9 @@ export default function ArticleDetailPage({ params }: PageProps) {
                   Artikel Lainnya
                 </h3>
                 <div className="space-y-3">
-                  {articles
-                    .filter((a) => a.slug !== article.slug)
-                    .slice(0, 4)
-                    .map((a) => (
-                      <ArticleCard key={a.id} article={a} variant="horizontal" />
-                    ))}
+                  {otherArticles.map((a) => (
+                    <ArticleCard key={a.id} article={a} variant="horizontal" />
+                  ))}
                 </div>
               </div>
             </div>
